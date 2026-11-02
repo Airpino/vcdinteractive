@@ -1,0 +1,107 @@
+---
+title: "Fitting discrete distributions: interactive rootograms"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    math_method: mathjax
+vignette: >
+  %\VignetteIndexEntry{Fitting discrete distributions: interactive rootograms}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(vcdinteractive)
+has_vcd <- requireNamespace("vcd", quietly = TRUE)
+```
+
+## Rootograms
+
+A count variable $X$ takes the values $k = 0, 1, \dots, K$ with observed
+frequencies $n_k$. To check whether a distribution $p_k(\hat\theta)$ fits,
+`vcd::goodfit()` estimates its parameters and computes the expected
+frequencies $\hat e_k = N\,p_k(\hat\theta)$. `vcd::rootogram()` then
+compares $n_k$ and $\hat e_k$ graphically. `irootogram()` does both, for
+several distributions at once, and lets you switch between them in the
+widget.
+
+Tukey's rootogram plots $\sqrt{n_k}$ rather than $n_k$. The square root
+stabilizes the variance of Poisson-like counts, so departures are comparable
+in the tails and in the bulk of the distribution. Three variants are
+available:
+
+* **standing**: bars of height $\sqrt{n_k}$ standing on the axis, with the
+  curve of $\sqrt{\hat e_k}$;
+* **hanging** (default): the bars hang from the curve, so their bottoms are
+  at $\sqrt{\hat e_k} - \sqrt{n_k}$. Lack of fit shows up as bars ending
+  away from the zero line, which is easier to judge than differences between
+  bars and a curve;
+* **deviation**: only the differences $\sqrt{\hat e_k} - \sqrt{n_k}$ are
+  drawn, from the zero line.
+
+The bars are coloured by the Pearson residual
+$(n_k - \hat e_k)/\sqrt{\hat e_k}$ with the shading of the other plots.
+Hovering a bar shows the counts, the residual and its contribution to the
+$X^2$ statistic.
+
+## Distributions and tests
+
+All parameters are estimated by maximum likelihood:
+
+| Distribution | $p_k$ | Estimates |
+|---|---|---|
+| Poisson | $e^{-\lambda}\lambda^k/k!$ | $\hat\lambda = \bar x$ |
+| Binomial | $\binom{n}{k} p^k (1-p)^{n-k}$ | $n$ given (default: the largest value), $\hat p = \bar x / n$ |
+| Negative binomial | $\binom{k + r - 1}{k} p^r (1-p)^k$ | $\hat\mu = \bar x$, $\hat r$ by numerical maximization |
+
+The header gives Pearson's $X^2 = \sum (n_k - \hat e_k)^2/\hat e_k$ and the
+likelihood-ratio $G^2 = 2\sum n_k \log(n_k/\hat e_k)$, with
+$K + 1 - 1 - (\text{number of estimated parameters})$ degrees of freedom.
+The same statistics are given by `summary(vcd::goodfit())`. With small
+expected frequencies in the tails the $\chi^2$ approximation is rough, and
+the plot is often more informative than the p-value.
+
+## Deaths by horse kicks
+
+The classic data of von Bortkiewicz: the number of soldiers killed by horse
+kicks in 200 corps-years of the Prussian army.
+
+```{r horse, eval = has_vcd}
+data(HorseKicks, package = "vcd")
+HorseKicks
+irootogram(HorseKicks, xlab = "Deaths by horse kicks per corps-year",
+           main = "Horse kicks: Poisson", height = 500)
+```
+
+The Poisson distribution fits very well: all the bars end close to the zero
+line.
+
+## The Federalist Papers
+
+The number of occurrences of the word *may* in 262 blocks of text of the
+Federalist Papers (Mosteller and Wallace, 1963):
+
+```{r federalist, eval = has_vcd}
+data(Federalist, package = "vcd")
+w <- irootogram(Federalist, dists = c("poisson", "nbinomial"),
+                xlab = "Occurrences of 'may' per block", main = "Federalist Papers",
+                height = 520)
+sapply(w$x$fits, function(f) c(G2 = round(f$G2, 2), df = f$df, p = signif(f$p_G2, 3)))
+w
+```
+
+The Poisson distribution predicts too few zeros and too few large counts.
+The hanging bars at 0 and at 3–6 go below the zero line, because those
+values are observed more often than expected. The bar at 1 stays well above
+it. This *overdispersion* is captured by the negative binomial, whose
+extra parameter lets the variance exceed the mean. Switch between the two
+distributions to see the bars move.
+
+## References
+
+* Friendly, M. and Meyer, D. (2016). *Discrete Data Analysis with R*,
+  chapter 3. CRC Press.
+* Mosteller, F. and Wallace, D. L. (1963). Inference in an authorship
+  problem. *Journal of the American Statistical Association*, 58, 275–309.
+* Tukey, J. W. (1977). *Exploratory Data Analysis*. Addison-Wesley.

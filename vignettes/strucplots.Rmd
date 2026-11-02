@@ -1,0 +1,192 @@
+---
+title: "Association, sieve and doubledecker plots, and comparing log-linear models"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    math_method: mathjax
+vignette: >
+  %\VignetteIndexEntry{Association, sieve and doubledecker plots; comparing models}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(vcdinteractive)
+has_vcdExtra <- requireNamespace("vcdExtra", quietly = TRUE)
+```
+
+In 'vcd' the mosaic plot is one member of the *strucplot* family. The family
+also includes the association plot (`assoc()`), the sieve diagram
+(`sieve()`) and the doubledecker plot (`doubledecker()`). All of them display
+the same ingredients: the observed counts $o_i$ of a contingency table, the
+counts $e_i$ expected under a log-linear model, and the residuals.
+
+`imosaic()` computes these quantities once, so the four displays are
+available in the same widget. The **View** buttons switch between them, and
+the tiles move from one display to the other. Variable order, split
+directions, inclusion of variables, residual type and the list of
+significant cells all work in every view. They are described in
+`vignette("residuals")` and `vignette("ucb-admissions")`.
+
+## Association plot
+
+In an association plot (Cohen, 1980; Friendly, 1991) each cell is a bar
+standing on a baseline:
+
+* its **width** is proportional to $\sqrt{e_i}$;
+* its **height** is proportional to the residual $r_i$, above the baseline
+  for positive and below for negative residuals.
+
+With Pearson residuals, $r_i = (o_i - e_i)/\sqrt{e_i}$, the **area** of the
+bar is proportional to $o_i - e_i$, the raw difference between observed and
+expected counts. With other residual types the height follows the selected
+residual, and the bars are redrawn when you switch residuals.
+
+The variables split in rows form the rows of the display and those split in
+columns form its columns, as in `vcd::assoc()`. Use the *rows/cols* buttons
+of each variable to change this.
+
+```{r assoc}
+imosaic(HairEyeColor, display = "assoc", residuals = "pearson",
+        main = "Hair, eye colour and sex: association plot", height = 600)
+```
+
+The association plot makes the *sign and size* of the departures easier to
+compare than the mosaic plot, where they are only coded by colour. For
+example, the excess of blue-eyed blond women stands out.
+
+## Sieve diagram
+
+In a sieve diagram (Riedwyl and Schüpbach, 1983) the **area of each tile is
+proportional to the expected count**: the tiles form the mosaic the table
+would have if the model held exactly. Each tile is filled with a grid of
+small squares, and **the number of squares equals the observed count**. A
+denser grid than the others means more observations than expected (blue,
+solid lines). A sparser one means fewer (red, dashed lines). Grey lines mark
+cells whose residual is below the first shading threshold.
+
+```{r sieve}
+imosaic(margin.table(HairEyeColor, 1:2), display = "sieve",
+        main = "Hair and eye colour: sieve diagram", height = 520)
+```
+
+## Doubledecker plot
+
+The doubledecker plot (Hofmann, 2001) is designed for a **response
+variable**. All the explanatory variables split the plot horizontally, in
+columns whose widths are proportional to their counts. The response splits
+each column vertically, so the heights show its *conditional distribution*
+given each combination of the explanatory variables. The levels of the
+response are shaded in grey, as in `vcd::doubledecker()`.
+
+In the widget the **last displayed variable is the response**. Drag another
+variable to the end to change it. The tooltip gives the conditional
+proportion of the response level and the total of the column.
+
+```{r doubledecker}
+imosaic(Titanic, display = "doubledecker",
+        main = "Survival on the Titanic by class, sex and age", height = 560)
+```
+
+The plot shows at once the priority given to women and children and its
+erosion from first to third class. It also shows the poor survival of the
+crew.
+
+## Comparing log-linear models
+
+The argument `models` adds a **Models** panel to the widget. It lists several
+log-linear models with their $G^2$, degrees of freedom, p-value and AIC.
+Clicking a row recolours the plot with the residuals of that model. The
+standard models of `vcdExtra::seq_loglm()` can be named directly. They are
+built on the order of the variables of the table, and the last variable plays
+the role of response:
+
+| Type | Model for variables $A, B, C, D$ | Meaning |
+|---|---|---|
+| `"mutual"` | [A][B][C][D] | all variables independent |
+| `"joint"` | [A B C][D] | $D$ independent of the others jointly |
+| `"conditional"` | [A D][B D][C D] | $A, B, C$ independent given $D$ |
+| `"markov"` | [A B][B C][C D] | first-order Markov chain |
+| `"saturated"` | [A B C D] | perfect fit |
+
+Formulas can be added as named elements of a list:
+
+```{r models}
+mods <- list("mutual", "joint", "conditional",
+             "Survival ~ Class + Sex + Age" =
+               ~ Class * Sex * Age + Survived * (Class + Sex + Age),
+             "Survival ~ Class*Sex + Class*Age" =
+               ~ Class * Sex * Age + Survived * (Class * Sex + Class * Age))
+imosaic(Titanic, models = mods, main = "Titanic: comparing models", height = 640)
+```
+
+The fit of each model, computed with `mosaic_cells()`:
+
+```{r models-table}
+fit <- function(f) attr(mosaic_cells(Titanic, expected = f), "model")
+forms <- list(
+  "[C][S][A][Su]"         = NULL,
+  "[CSA][Su]"             = ~ Class * Sex * Age + Survived,
+  "Su ~ C + S + A"        = ~ Class * Sex * Age + Survived * (Class + Sex + Age),
+  "Su ~ C*S + C*A"        = ~ Class * Sex * Age + Survived * (Class * Sex + Class * Age))
+tab <- t(sapply(forms, function(f) { m <- fit(f); c(G2 = m$G2, df = m$df, p = m$p_G2, AIC = m$aic) }))
+round(tab, 3)
+```
+
+The model in which survival depends on the interactions of class with sex
+and with age fits well. Selecting it in the widget turns almost all the
+tiles grey. Selecting the joint-independence model instead shows which
+groups survived more, or less, than the average.
+
+Models also combine with adding and removing variables: when a variable is
+unticked, each model is collapsed over it (`?imosaic`, argument `subsets`).
+
+## Residuals of a fitted model (`glm`, `gnm`)
+
+Any Poisson log-linear model fitted to frequency data with `glm()` (or
+`gnm::gnm()`) can be passed directly to `imosaic()`. Its fitted values become
+the expected counts, as in `vcdExtra::mosaic.glm()`. This covers models that
+the hierarchical formulas above cannot express, such as association models
+for **ordinal** variables.
+
+The `Mental` data of 'vcdExtra' cross-classify mental impairment and
+parents' socio-economic status. Independence does not fit. The residuals show
+the typical pattern of an ordinal association: positive in two opposite
+corners, negative in the other two.
+
+```{r glm-indep, eval = has_vcdExtra}
+data(Mental, package = "vcdExtra")
+indep <- glm(Freq ~ mental + ses, family = poisson, data = Mental)
+imosaic(indep, display = "assoc", main = "Mental impairment and SES: independence",
+        height = 480)
+```
+
+A linear-by-linear association model adds a single parameter for the
+product of the scores of the two variables:
+
+```{r glm-linlin, eval = has_vcdExtra}
+linlin <- update(indep, . ~ . + as.numeric(mental):as.numeric(ses))
+c(independence = deviance(indep), linear_by_linear = deviance(linlin))
+imosaic(linlin, main = "Mental impairment and SES: linear-by-linear association",
+        height = 480)
+```
+
+The residual pattern disappears with one extra parameter. With a fitted model
+as input, the variables can be reordered but not removed, because the model
+cannot be collapsed automatically.
+
+## References
+
+* Cohen, A. (1980). On the graphical display of the significant components
+  in a two-way contingency table. *Communications in Statistics, Theory and
+  Methods*, 9, 1025–1041.
+* Friendly, M. (1991). *SAS System for Statistical Graphics*. SAS Institute.
+* Hofmann, H. (2001). Generalized odds ratios for visual modelling.
+  *Journal of Computational and Graphical Statistics*, 10, 628–640.
+* Meyer, D., Zeileis, A. and Hornik, K. (2006). The strucplot framework:
+  visualizing multi-way contingency tables with vcd. *Journal of Statistical
+  Software*, 17(3), 1–48.
+* Riedwyl, H. and Schüpbach, M. (1983). *Siebdiagramme: Graphische
+  Darstellung von Kontingenztafeln*. Technical Report 12, Institute for
+  Mathematical Statistics, University of Bern.

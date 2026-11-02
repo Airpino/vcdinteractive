@@ -1,0 +1,281 @@
+---
+title: "Residuals for mosaic plots: definitions and when to use them"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    math_method: mathjax
+vignette: >
+  %\VignetteIndexEntry{Residuals for mosaic plots}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(vcdinteractive)
+has_robustbase <- requireNamespace("robustbase", quietly = TRUE)
+```
+
+## Purpose
+
+A shaded mosaic plot colours each tile according to how far the observed
+count of the cell is from the count expected under a model, usually the
+model of (mutual) independence. The measure of distance is a *residual*.
+`vcd::mosaic()` uses Pearson residuals; `vcdinteractive` computes six kinds
+of residuals, lets you switch among them in the interactive plot, and uses
+them to test each cell.
+
+This vignette gives the definition of each residual, its properties and the
+situations in which it is the appropriate choice.
+
+## Notation
+
+For a contingency table with $N$ cells, let, for cell $i$,
+
+* $o_i$ be the observed count;
+* $e_i$ be the expected count, i.e. the maximum likelihood fitted value of a
+  Poisson log-linear model $\log e_i = x_i^\top \beta$. By default the model
+  is mutual independence (main effects only), as in `vcd::mosaic()`; other
+  models are given with the `expected` argument, e.g.
+  `expected = ~ Class * Sex * Age + Survived`;
+* $h_i$ be the leverage of the cell, the $i$-th diagonal element of the hat
+  matrix of the Poisson GLM,
+  $$H = W^{1/2} X (X^\top W X)^{-1} X^\top W^{1/2}, \qquad W = \mathrm{diag}(e_1, \dots, e_N).$$
+  Under the model, $\mathrm{Var}(o_i - e_i) \approx e_i (1 - h_i)$.
+
+All quantities are computed by `mosaic_cells()`:
+
+```{r}
+cells <- mosaic_cells(HairEyeColor)
+head(cells[, c("Hair", "Eye", "Sex", "observed", "expected", "leverage",
+               residual_types)])
+```
+
+## The residuals
+
+### Pearson residuals (`"pearson"`)
+
+$$r_i^{P} = \frac{o_i - e_i}{\sqrt{e_i}}, \qquad \sum_i \left(r_i^{P}\right)^2 = X^2 .$$
+
+* They decompose Pearson's $X^2$ statistic, so the shading shows which cells
+  contribute most to the lack of fit. They are the residuals of
+  `vcd::mosaic(..., shade = TRUE)`.
+* Their variance is $1 - h_i < 1$, not 1. Compared with normal quantiles
+  (e.g. the cut-offs $\pm 2$, $\pm 4$) they are **conservative**, and more so
+  for cells with high leverage (cells in small tables, or in rows/columns
+  with a large share of the total).
+* With small expected counts their distribution is skewed.
+
+**When to use them.** For describing the lack of fit and for comparability
+with `vcd` and with the published literature. Not the best choice for
+deciding which cells are significant.
+
+### Adjusted standardized residuals (`"standardized"`)
+
+$$r_i^{S} = \frac{o_i - e_i}{\sqrt{e_i (1 - h_i)}} = \frac{r_i^{P}}{\sqrt{1 - h_i}} .$$
+
+In a two-way table under independence this is Haberman's (1973) adjusted
+residual,
+$$r_{jk}^{S} = \frac{o_{jk} - e_{jk}}{\sqrt{e_{jk} (1 - p_{j+}) (1 - p_{+k})}} ,$$
+with $p_{j+}$ and $p_{+k}$ the marginal proportions.
+
+* Asymptotically $N(0, 1)$ under the model, for any log-linear model.
+* Always larger in absolute value than the Pearson residual of the same cell.
+
+**When to use them.** For testing single cells and for the list of
+significant cells: this is the **default** of `imosaic()` and
+`significant_cells()`, and the residual recommended by Agresti (2013).
+
+### Deviance residuals (`"deviance"`)
+
+$$r_i^{D} = \operatorname{sign}(o_i - e_i)\,\sqrt{2\left[o_i \log\frac{o_i}{e_i} - (o_i - e_i)\right]}, \qquad \sum_i \left(r_i^{D}\right)^2 = G^2 ,$$
+with $o_i \log(o_i/e_i) = 0$ when $o_i = 0$, so that an empty cell has
+$r_i^{D} = -\sqrt{2 e_i}$.
+
+* They decompose the likelihood-ratio statistic $G^2$, the statistic used to
+  compare nested log-linear models.
+* Less skewed than Pearson residuals; for p-values they are standardized as
+  $r_i^{D} / \sqrt{1 - h_i}$.
+
+**When to use them.** When the analysis is based on $G^2$ (model selection
+by likelihood-ratio tests, e.g. with `vcdExtra::seq_loglm()`), so that the
+shading agrees with the statistic being reported.
+
+### Freeman–Tukey residuals (`"freeman_tukey"`)
+
+$$r_i^{FT} = \sqrt{o_i} + \sqrt{o_i + 1} - \sqrt{4 e_i + 1} .$$
+
+* The Freeman–Tukey (1950) transformation $\sqrt{o} + \sqrt{o + 1}$ is
+  variance-stabilizing for the Poisson distribution: its variance is close to
+  1 whatever the mean, also for small means (Bishop, Fienberg and Holland,
+  1975).
+* The sum of their squares is the Freeman–Tukey goodness-of-fit statistic.
+
+**When to use them.** With **sparse tables or small expected counts** (say
+$e_i < 5$), where Pearson residuals are unstable and dominated by cells with
+tiny $e_i$.
+
+### Anscombe residuals (`"anscombe"`)
+
+$$r_i^{A} = \frac{3}{2}\,\frac{o_i^{2/3} - e_i^{2/3}}{e_i^{1/6}} .$$
+
+* Based on the transformation $o^{2/3}$, which makes the Poisson distribution
+  approximately symmetric (Anscombe, 1953; McCullagh and Nelder, 1989).
+  Numerically very close to deviance residuals (Pierce and Schafer, 1986).
+
+**When to use them.** When the **normality** of the residuals matters, e.g.
+for normal probability plots of the residuals, or with small and skewed
+counts.
+
+### Robust residuals (`"robust"`)
+
+$$r_i^{R} = \frac{o_i - \tilde e_i}{\sqrt{\tilde e_i}} ,$$
+where $\tilde e_i$ are the fitted values of the **same log-linear model**
+estimated robustly:
+
+* by default (`robust = "auto"`, if the package **robustbase** is installed)
+  with the robust quasi-likelihood estimator of Cantoni and Ronchetti (2001),
+  `robustbase::glmrob(method = "Mqle")`, which uses Huber's $\psi$ function
+  ($c = 1.345$) to bound the influence of each cell on the fit;
+* alternatively (`robust = "medpolish"`, mutual independence only) by a
+  median polish of $\log(o_i + 0.5)$ along all the dimensions of the table
+  (Mosteller and Parunak, 1985). This is fast, but unreliable for sparse
+  tables.
+
+Why it matters: the classical fitted values are computed from the margins,
+which also contain the outlying cells. A single very large cell inflates the
+expected counts of its whole row and column. Its own residual is then
+reduced (**masking**), and the other cells of the same row and column get
+spuriously negative residuals (**swamping**). A robust fit is not pulled
+towards the outlying cells, so they stand out and the other cells are left
+alone (Kuhnt, 2004).
+
+**When to use them.** To find **outlying cells**, i.e. when you expect the
+model to hold for most of the table except for a few cells. They are not
+meaningful when the model is wrong almost everywhere (e.g. mutual
+independence for `Titanic`): then the robust fit follows the largest group
+of cells and the robust residuals become huge elsewhere. The p-values of the
+robust residuals ignore leverage and the variability of the robust fit and
+are only **indicative**.
+
+### Example: masking and swamping
+
+A $5 \times 5$ table of independent Poisson counts, with one planted outlier
+in cell (b, C):
+
+```{r masking, eval = has_robustbase}
+set.seed(1)
+tab <- as.table(matrix(rpois(25, 40), 5,
+                dimnames = list(A = letters[1:5], B = LETTERS[1:5])))
+tab[2, 3] <- 400
+cells <- mosaic_cells(tab)
+# row b and column C, which contain the outlier
+sub <- cells[cells$A == "b" | cells$B == "C",
+             c("A", "B", "observed", "expected", "expected_robust",
+               "pearson", "standardized", "robust")]
+format(sub, digits = 2)
+```
+
+With the classical fit the expected count of the outlier is far above the
+40 of the other cells. The outlier's residual is reduced, and every other
+cell of row b and column C looks under-represented. With the robust fit only
+the outlier stands out.
+
+## Testing cells
+
+For every type except `"robust"`, the p-value of a cell is
+$$p_i = 2\,\Phi\!\left(-\frac{|r_i|}{\sqrt{1 - h_i}}\right),$$
+i.e. the residual is standardized by its leverage before being compared with
+$N(0,1)$. For Pearson residuals this gives the same p-value as the adjusted
+standardized residual. For robust residuals $p_i = 2\,\Phi(-|r_i^{R}|)$.
+
+Testing all $N$ cells is a multiple-testing problem. `significant_cells()` and
+the interactive plot adjust the p-values with `stats::p.adjust()`:
+
+* `"holm"` (default) and `"bonferroni"` control the family-wise error rate:
+  use them when a single false discovery is costly, or for small tables.
+* `"BH"` (Benjamini and Hochberg, 1995) controls the false discovery rate:
+  more powerful for large tables, in exploratory analyses. Residuals of the
+  same table are dependent (they satisfy linear constraints), so the FDR
+  control is approximate.
+* `"none"` gives the unadjusted cell-wise tests.
+
+```{r}
+significant_cells(HairEyeColor, type = "standardized", adjust = "holm")
+```
+
+## Shading
+
+As in `vcd::shading_hcl()`, tiles are coloured with blue hues for positive
+residuals (more observations than expected) and red hues for negative ones.
+Saturation steps up at $|r| = 2$ and $|r| = 4$ (argument `breaks`). For
+adjusted standardized, Freeman–Tukey and Anscombe residuals these cut-offs
+correspond roughly to cell-wise two-sided levels of 5% and 0.01%. For
+Pearson residuals they are conservative, as explained above. The black
+outline marks the cells that are significant after the multiplicity
+correction, independently of the colour.
+
+## Choosing a residual: summary
+
+| Residual | Formula | Sum of squares | Use it for |
+|---|---|---|---|
+| Pearson | $(o-e)/\sqrt e$ | $X^2$ | describing lack of fit; comparability with `vcd` |
+| Adjusted standardized | $(o-e)/\sqrt{e(1-h)}$ | – | testing single cells (default) |
+| Deviance | $\pm\sqrt{2[o\log(o/e)-(o-e)]}$ | $G^2$ | analyses based on likelihood-ratio tests |
+| Freeman–Tukey | $\sqrt o+\sqrt{o+1}-\sqrt{4e+1}$ | FT statistic | sparse tables, small expected counts |
+| Anscombe | $\tfrac32(o^{2/3}-e^{2/3})/e^{1/6}$ | – | near-normal residuals, skewed small counts |
+| Robust | $(o-\tilde e)/\sqrt{\tilde e}$ | – | outlying cells, masking and swamping |
+
+## In the interactive plot
+
+`imosaic()` receives all the residuals and their p-values at once. In the
+side panel:
+
+* the **Residuals** buttons switch the residual used for shading. The tiles
+  are recoloured immediately, and the formula and a reminder of when to use
+  the selected residual are shown below the buttons. The keys `1`–`6` do the
+  same when the plot has the focus;
+* the tooltip of each tile shows **all** the residuals of the cell with their
+  p-values, with the selected one in bold, so they can be compared directly;
+* the list of significant cells, the legend and the CSV export follow the
+  selected residual, correction and $\alpha$.
+
+```{r widget, eval = has_robustbase}
+imosaic(HairEyeColor, residuals = "standardized", height = 560)
+```
+
+## References
+
+* Agresti, A. (2013). *Categorical Data Analysis*, 3rd ed. Wiley.
+* Anscombe, F. J. (1953). Contribution to the discussion of H. Hotelling's
+  paper. *Journal of the Royal Statistical Society B*, 15, 229–230.
+* Benjamini, Y. and Hochberg, Y. (1995). Controlling the false discovery
+  rate. *Journal of the Royal Statistical Society B*, 57, 289–300.
+* Bishop, Y. M. M., Fienberg, S. E. and Holland, P. W. (1975). *Discrete
+  Multivariate Analysis*. MIT Press.
+* Cantoni, E. and Ronchetti, E. (2001). Robust inference for generalized
+  linear models. *Journal of the American Statistical Association*, 96,
+  1022–1030.
+* Freeman, M. F. and Tukey, J. W. (1950). Transformations related to the
+  angular and the square root. *Annals of Mathematical Statistics*, 21,
+  607–611.
+* Friendly, M. and Meyer, D. (2016). *Discrete Data Analysis with R*. CRC
+  Press.
+* Haberman, S. J. (1973). The analysis of residuals in cross-classified
+  tables. *Biometrics*, 29, 205–220.
+* Holm, S. (1979). A simple sequentially rejective multiple test procedure.
+  *Scandinavian Journal of Statistics*, 6, 65–70.
+* Kuhnt, S. (2004). Outlier identification procedures for contingency tables
+  using maximum likelihood and $L_1$ estimates. *Scandinavian Journal of
+  Statistics*, 31, 431–442.
+* McCullagh, P. and Nelder, J. A. (1989). *Generalized Linear Models*, 2nd
+  ed. Chapman & Hall.
+* Mosteller, F. and Parunak, A. (1985). Identifying extreme cells in a
+  sizable contingency table: probabilistic and exploratory approaches. In
+  D. C. Hoaglin, F. Mosteller and J. W. Tukey (eds), *Exploring Data Tables,
+  Trends, and Shapes*. Wiley.
+* Pierce, D. A. and Schafer, D. W. (1986). Residuals in generalized linear
+  models. *Journal of the American Statistical Association*, 81, 977–986.
+* Zeileis, A., Meyer, D. and Hornik, K. (2007). Residual-based shadings for
+  visualizing (conditional) independence. *Journal of Computational and
+  Graphical Statistics*, 16, 507–525.

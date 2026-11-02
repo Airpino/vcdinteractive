@@ -1,0 +1,13 @@
+.Rproj.user
+.Rhistory
+.RData
+*.Rcheck/
+*.tar.gz
+inst/doc
+doc
+Meta
+vignettes/*.html
+vignettes/*.R
+.httr-oauth
+.DS_Store
+.quarto

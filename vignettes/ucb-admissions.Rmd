@@ -1,0 +1,114 @@
+---
+title: "Simpson's paradox in the UC Berkeley admissions data"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    math_method: mathjax
+vignette: >
+  %\VignetteIndexEntry{Simpson's paradox in the UC Berkeley admissions data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(vcdinteractive)
+pct <- function(x) sprintf("%.1f%%", 100 * x)
+```
+
+```{r numbers, include = FALSE}
+ag <- prop.table(margin.table(UCBAdmissions, c(1, 2)), 2)["Admitted", ]
+agg <- mosaic_cells(margin.table(UCBAdmissions, c(2, 1)))
+cond <- mosaic_cells(UCBAdmissions, expected = ~ Admit * Dept + Gender * Dept)
+mc <- attr(cond, "model")
+sig <- significant_cells(cond, adjust = "holm")
+rate_A <- prop.table(UCBAdmissions[, , "A"], 2)["Admitted", ]
+noA <- attr(mosaic_cells(UCBAdmissions[, , -1],
+                         expected = ~ Admit * Dept + Gender * Dept), "model")
+```
+
+## The data
+
+In 1973 the graduate division of the University of California, Berkeley,
+was suspected of gender bias in admissions (Bickel, Hammel and O'Connell,
+1975). The data for the six largest departments are in base R as
+`datasets::UCBAdmissions`, a $2 \times 2 \times 6$ table
+(`Admit` $\times$ `Gender` $\times$ `Dept`) with
+`r sum(UCBAdmissions)` applicants.
+
+```{r}
+ftable(UCBAdmissions, row.vars = "Dept", col.vars = c("Gender", "Admit"))
+```
+
+All the plots below are interactive. You can drag the variables to change
+their order, hover the tiles, and switch the residuals in the side panel.
+
+## 1. The aggregated table
+
+Summing over departments, `r pct(ag["Male"])` of men and
+`r pct(ag["Female"])` of women were admitted. Under independence of `Gender`
+and `Admit` all four cells are significant: the adjusted standardized
+residuals are $\pm$ `r sprintf("%.1f", abs(agg$standardized[1]))`. Women
+look under-represented among the admitted.
+
+```{r aggregate}
+imosaic(~ Gender + Admit, data = UCBAdmissions,
+        main = "Aggregated over departments: Gender x Admit", height = 500)
+```
+
+## 2. Within departments
+
+The hypothesis of no discrimination corresponds to the log-linear model
+[AD][GD]: admission and gender are *conditionally* independent given the
+department. Its expected counts reproduce the Dept $\times$ Admit and
+Dept $\times$ Gender margins, so each department keeps its own admission rate
+and its own share of women.
+
+```{r conditional}
+imosaic(~ Dept + Gender + Admit, data = UCBAdmissions,
+        expected = ~ Admit * Dept + Gender * Dept,
+        main = "Model [AD][GD]: Admit independent of Gender given Dept",
+        height = 620)
+```
+
+The model gives $G^2 =$ `r sprintf("%.1f", mc$G2)` on `r mc$df` df. The
+only significant cells (Holm correction) are the four cells of department A:
+
+```{r}
+sig
+```
+
+In department A women are admitted **more** often than men
+(`r pct(rate_A["Female"])` vs `r pct(rate_A["Male"])`). Without department A
+the model fits well ($G^2 =$ `r sprintf("%.1f", noA$G2)`, df = `r noA$df`,
+p = `r sprintf("%.2f", noA$p_G2)`).
+
+Try dragging `Dept` to the last position. You then see, within each gender,
+how the applicants are spread over the departments.
+
+Now **untick `Dept`** in the toolbar. The table is collapsed over the
+departments and the model [AD][GD] becomes the independence of `Admit` and
+`Gender`: the plot turns into the aggregated mosaic of Section 1, with its
+four strongly significant cells. Tick `Dept` again and each tile splits back
+into its departments. Switching between the two views shows Simpson's paradox
+directly.
+
+## 3. Why the aggregate is misleading
+
+The department is associated with both gender and admission. Women applied
+mostly to departments C–F, which admit few applicants. Men applied mostly to
+A and B, which admit most of them. Aggregating over this confounder creates an
+association against women that does not exist within departments, where, if
+anything, women are favoured: this is Simpson's paradox.
+
+```{r margins}
+imosaic(~ Dept + Gender, data = UCBAdmissions,
+        main = "Who applies where: Dept x Gender", height = 480)
+imosaic(~ Dept + Admit, data = UCBAdmissions,
+        main = "Admission rate by department: Dept x Admit", height = 480)
+```
+
+## Reference
+
+Bickel, P. J., Hammel, E. A. and O'Connell, J. W. (1975). Sex bias in
+graduate admissions: data from Berkeley. *Science*, 187, 398–404.

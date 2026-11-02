@@ -1,0 +1,106 @@
+---
+title: "A categorical response and a numeric predictor: spinograms and conditional densities"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    math_method: mathjax
+vignette: >
+  %\VignetteIndexEntry{Spinograms and conditional density plots}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(vcdinteractive)
+has_vcd <- requireNamespace("vcd", quietly = TRUE)
+```
+
+When the response $Y$ is categorical and the predictor $X$ is numeric, the
+question is how the conditional distribution $P(Y = k \mid X = x)$ changes
+with $x$. 'vcd' answers it graphically with two displays. `ispine()` and
+`icdplot()` make them interactive, and the widget switches between them.
+
+## Spinogram
+
+A spinogram (Hummel, 1996) is a histogram turned into a mosaic plot:
+
+* the predictor is cut into bins;
+* each bin is a bar whose **width is proportional to the number of
+  observations** in it;
+* each bar is split by the response, so the heights are the conditional
+  proportions in the bin.
+
+The bin breaks are placed proportionally on the horizontal axis. The area of
+each segment is proportional to its count.
+
+The result depends on the binning. The **Bins** slider changes the number of
+bins, and the plot is recomputed in the browser. *Equal width* bins follow
+the scale of $X$. *Quantile* bins have roughly equal counts, so all the bars
+have similar widths and similar precision.
+
+## Conditional density plot
+
+The conditional density plot (Hofmann and Theus, 2005) smooths the same
+information. With a Gaussian kernel $K_h$ of bandwidth $h$ and the same
+bandwidth for all the classes,
+$$\hat P(Y = k \mid x) = \frac{n_k \hat f_k(x)}{\sum_j n_j \hat f_j(x)}
+ = \frac{\sum_{i:\,y_i = k} K_h(x - x_i)}{\sum_i K_h(x - x_i)},$$
+which is a Nadaraya–Watson estimate of the conditional probabilities. The
+areas are stacked, so the boundaries are cumulative probabilities.
+
+The **bandwidth slider** multiplies the default bandwidth of
+`stats::bw.nrd0()` by factors between 1/4 and 4. Small bandwidths follow the
+data closely and become noisy. Large ones flatten the curves towards the
+marginal proportions. Moving the slider shows how much of a pattern is
+signal. The tick marks under the axis are the observations, and the tooltip
+gives the estimated probabilities at the mouse position.
+
+## Arthritis treatment
+
+Improvement after treatment for rheumatoid arthritis, by age, in the
+`Arthritis` data of 'vcd':
+
+```{r arthritis, eval = has_vcd}
+data(Arthritis, package = "vcd")
+ispine(Improved ~ Age, data = Arthritis, main = "Improvement by age", height = 520)
+```
+
+The proportion of patients with *marked* improvement grows with age. Switch
+to the conditional density, then compare a small and a large bandwidth. The
+increase appears at any bandwidth. The local bump of *None* around 45–50
+years fades as the bandwidth grows, which suggests that it is noise in a
+sample of 84 patients.
+
+## Space shuttle O-rings
+
+Whether the O-rings of the space shuttle showed thermal distress, by launch
+temperature (°F), for the 23 flights with known outcome before the
+*Challenger* accident:
+
+```{r shuttle, eval = has_vcd}
+data(SpaceShuttle, package = "vcd")
+icdplot(Fail ~ Temperature, data = SpaceShuttle, main = "O-ring failure by temperature",
+        height = 480)
+```
+
+The estimated probability of failure rises steeply as the temperature
+falls below the mid-60s °F. The
+temperature at the *Challenger* launch was 31°F, far outside the observed
+range.
+
+## A three-class response
+
+```{r iris}
+icdplot(Species ~ Petal.Length, data = iris, main = "Iris species by petal length",
+        height = 480)
+```
+
+## References
+
+* Hummel, J. (1996). Linked bar charts: analysing categorical data
+  graphically. *Computational Statistics*, 11, 23–33.
+* Hofmann, H. and Theus, M. (2005). Interactive graphics for visualizing
+  conditional distributions. Unpublished manuscript.
+* Friendly, M. and Meyer, D. (2016). *Discrete Data Analysis with R*,
+  chapter 7. CRC Press.

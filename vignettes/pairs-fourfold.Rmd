@@ -1,0 +1,116 @@
+---
+title: "Pairwise mosaic matrices and fourfold displays"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    math_method: mathjax
+vignette: >
+  %\VignetteIndexEntry{Pairwise mosaic matrices and fourfold displays}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(vcdinteractive)
+```
+
+## A matrix of mosaic plots: `ipairs()`
+
+For a table with several variables, a first exploratory step is to look at
+all the two-way margins. `vcd::pairs.table()` draws them as a scatterplot
+matrix of mosaic plots. `ipairs()` is its interactive counterpart:
+
+* panel (row $i$, column $j$) is the mosaic plot of variables $i$ and $j$:
+  first split in rows by variable $i$, then in columns by variable $j$. It
+  is shaded by the residuals of independence *for that pair*;
+* the diagonal shows a bar chart of each variable;
+* **hovering a tile** shows its counts and residual. It also **highlights,
+  in every other panel, the tiles with the same categories** (linked
+  highlighting). Panels that share no variable with the hovered tile stay
+  unchanged;
+* **clicking a panel** enlarges it with its category labels, and the
+  *Matrix* button goes back;
+* the side panel switches residuals and lists the significant cells of all
+  the panels. The multiplicity correction is applied over all the cells of
+  all the panels.
+
+```{r pairs}
+ipairs(HairEyeColor, main = "Hair, eye colour and sex: pairwise associations",
+       height = 660)
+```
+
+Hair and eye colour are strongly associated: blond hair with blue eyes,
+black and brown hair with brown eyes. Sex is almost independent of both.
+Hovering *Blond* in the hair–eye panel shows where blond people are in the
+sex panels.
+
+```{r pairs-titanic}
+ipairs(Titanic, residuals = "pearson", main = "Titanic", height = 660)
+```
+
+Pairwise displays only show **marginal** associations. They can hide or
+create associations that vanish once the other variables are taken into
+account, as `vignette("ucb-admissions")` shows. Use `imosaic()` with a model
+for the conditional view.
+
+## Fourfold displays: `ifourfold()`
+
+For a $2 \times 2$ table the association is summarized by the **odds
+ratio**
+$$\theta = \frac{n_{11}\, n_{22}}{n_{12}\, n_{21}}.$$
+The fourfold display (Friendly, 1994) draws each cell as a
+quarter circle with area proportional to its frequency. With the default
+standardization (`std = "margins"`) the table is first rescaled so that
+**both margins are equal**. This leaves $\theta$ unchanged and removes the
+effect of unequal margins. Under independence the four quarters then form a
+circle. When $\theta > 1$ the diagonal quarters are larger than the
+off-diagonal ones; when $\theta < 1$ they are smaller.
+
+For a table rescaled to equal margins, with total 1, the diagonal cells are
+equal to
+$$a = \frac{1}{2}\,\frac{\sqrt{\theta}}{1 + \sqrt{\theta}},$$
+and the off-diagonal cells to $\frac12 - a$. The **confidence rings** draw
+the same quarters for the two bounds of the confidence interval of
+$\theta$, which is computed on the log scale with
+$\mathrm{SE}(\log\hat\theta) = \sqrt{\sum 1/n_{ij}}$. If the rings of
+adjacent quarters overlap, the odds ratio is not significantly different
+from 1. The diagonal quarters are blue when $\theta > 1$ and red when
+$\theta < 1$, with darker shades when the interval excludes 1.
+
+For a $2 \times 2 \times k$ table there is one display per stratum. The
+widget adds:
+
+* a **forest plot** of the log odds ratios with their confidence intervals,
+  and the Mantel–Haenszel estimate of the common odds ratio (dashed line);
+  hovering a stratum in either panel highlights it in both;
+* **Woolf's test** of the homogeneity of the odds ratios across strata, in
+  the header;
+* buttons for the standardization (`"margins"`, each stratum scaled to its
+  largest cell, all strata scaled to the largest cell overall), the
+  confidence rings and the confidence level.
+
+```{r fourfold}
+ifourfold(UCBAdmissions, main = "UC Berkeley admissions by department", height = 620)
+```
+
+The forest plot makes the paradox of `vignette("ucb-admissions")` visible.
+In department A the odds ratio of admission for men versus women is well
+below 1: women are favoured. In the other departments it is close to 1.
+Woolf's test rejects homogeneity because of department A alone. The
+Mantel–Haenszel common odds ratio is close to 1, while the odds ratio of
+the aggregated table is about 1.84 in favour of men:
+
+```{r fourfold-aggregated}
+ifourfold(margin.table(UCBAdmissions, 1:2), main = "Aggregated over departments",
+          height = 480)
+```
+
+## References
+
+* Friendly, M. (1994). A fourfold display for 2 by 2 by K tables.
+  Technical Report 217, Psychology Department, York University.
+* Friendly, M. and Meyer, D. (2016). *Discrete Data Analysis with R*. CRC
+  Press.
+* Woolf, B. (1955). On estimating the relation between blood group and
+  disease. *Annals of Human Genetics*, 19, 251–253.

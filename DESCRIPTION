@@ -1,0 +1,27 @@
+Package: vcdinteractive
+Type: Package
+Title: Interactive Displays for Visualizing Categorical Data
+Version: 0.1.0
+Authors@R: person("Antonio", "Irpino", email = "antonio.irpino@unicampania.it",
+    role = c("aut", "cre"))
+Description: Interactive versions of the displays of the 'vcd' and
+    'vcdExtra' packages, rendered as 'htmlwidgets'. Mosaic, association,
+    sieve and doubledecker plots share one widget, in which variables can be
+    reordered, added or removed and split directions changed on the fly,
+    tiles report observed and expected counts on hover, several kinds of
+    residuals (Pearson, adjusted standardized, deviance, Freeman-Tukey,
+    Anscombe and residuals from a robust fit) can be used for shading, and
+    log-linear models can be compared. Cells that depart significantly from
+    the model are listed with multiplicity-adjusted p-values. Further
+    widgets provide pairwise mosaic matrices with linked highlighting,
+    fourfold displays with log odds ratio plots, rootograms for discrete
+    distributions, spinograms and conditional density plots,
+    correspondence analysis maps and association graphs.
+License: GPL-2 | GPL-3
+Encoding: UTF-8
+Depends: R (>= 4.1.0)
+Imports: htmlwidgets, stats, grDevices, utils
+Suggests: vcd, vcdExtra, ca, gnm, robustbase, shiny, knitr, rmarkdown, testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+RoxygenNote: 7.3.1

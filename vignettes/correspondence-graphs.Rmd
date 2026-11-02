@@ -1,0 +1,139 @@
+---
+title: "Correspondence analysis maps and association graphs"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    math_method: mathjax
+vignette: >
+  %\VignetteIndexEntry{Correspondence analysis maps and association graphs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(vcdinteractive)
+```
+
+Mosaic plots show the cells of a table. Two complementary displays summarize
+the **associations** themselves:
+
+* a correspondence analysis map, where categories that occur together are
+  plotted close to each other;
+* an association graph, where the variables are nodes joined by the
+  associations of a log-linear model.
+
+## Correspondence analysis: `imcaplot()`
+
+### Simple correspondence analysis
+
+For a two-way table with relative frequencies $p_{ij}$ and margins $r_i$,
+$c_j$, correspondence analysis is the singular value decomposition
+$$\frac{p_{ij} - r_i c_j}{\sqrt{r_i c_j}} = \sum_k \sigma_k u_{ik} v_{jk}.$$
+The squared singular values $\sigma_k^2$ are the principal inertias; their
+sum is Pearson's $X^2 / N$. The rows are plotted at $f_{ik} =
+\sigma_k u_{ik} / \sqrt{r_i}$ and the columns at $g_{jk} = \sigma_k v_{jk} /
+\sqrt{c_j}$ (principal coordinates). Each dimension accounts for
+$\sigma_k^2 / \sum \sigma^2$ of the association.
+
+```{r ca}
+imcaplot(margin.table(HairEyeColor, 1:2), main = "Hair and eye colour: simple CA",
+         height = 520)
+```
+
+The first dimension (about 90% of the inertia) runs from dark (black hair,
+brown eyes) to fair (blond hair, blue eyes). The second separates red hair
+and green or hazel eyes.
+
+### Multiple correspondence analysis
+
+With three or more variables `imcaplot()` computes a multiple correspondence
+analysis from the Burt matrix, the table of all two-way margins. The
+coordinates are those of the indicator-matrix analysis. The percentages of
+inertia are **Greenacre's adjusted** ones, the default of `ca::mjca()` and
+of `vcdExtra::mcaplot()`, because the unadjusted percentages of MCA are
+much too pessimistic. The same results are obtained with `ca::mjca()`, and
+`mjca` and `ca` objects can also be passed to `imcaplot()`.
+
+```{r mca}
+imcaplot(HairEyeColor, main = "Hair, eye colour and sex: MCA", height = 560)
+```
+
+Interactions in the map:
+
+* **legend chips** show and hide the categories of each variable;
+* *join categories* draws a line through the categories of each variable,
+  as `vcdExtra::mcaplot()` does;
+* the **wheel** zooms around the mouse, **dragging** pans, and a **double
+  click** resets the view;
+* labels that would overlap are hidden and appear on hover. The tooltip gives
+  the mass, the coordinates, the contribution of the point to each displayed
+  dimension, and its quality of representation (the sum of the squared
+  cosines on the two dimensions);
+* the selectors choose the dimensions on the axes.
+
+## Association graphs: `iassoc_graph()`
+
+A hierarchical log-linear model is described by its *generating class*, the
+maximal sets of variables that interact. For example, [Admit Dept][Gender
+Dept] says that admission and gender are each associated with the department
+but are conditionally independent given it. The **association graph**
+(Whittaker, 1990; `vcdExtra::assoc_graph()`) has one node per variable and an
+edge between two variables when they appear together in a term. Two
+variables with no edge between them are conditionally independent given all
+the other variables.
+
+`iassoc_graph()` draws this graph interactively and compares several models:
+
+* the side table lists the models with $G^2$, df, p-value and AIC. Clicking
+  a row redraws the graph. The model with the smallest AIC is shown at
+  start-up, unless another one is chosen with `initial`. In narrow pages,
+  such as this vignette, the side table is below the graph;
+* the **width of an edge** is proportional to $\Delta G^2$, the increase in
+  $G^2$ when that association is removed from the model (every term that
+  contains both variables is replaced by its two sub-terms). Its p-value is
+  in the table and in the tooltip, and non-significant edges are dashed;
+* the nodes can be dragged; hovering a node highlights its edges;
+* *show marginal associations* adds dotted lines for all the pairs, with
+  widths proportional to Cramér's $V$ of the two-way margins, to compare
+  marginal and partial associations.
+
+Models are fitted by iterative proportional fitting (`stats::loglin()`),
+which handles sampling zeros, frequent in tables such as `Titanic`.
+
+```{r graph-ucb}
+iassoc_graph(UCBAdmissions, models = list(
+  "[AD][GD]" = ~ Admit * Dept + Gender * Dept,
+  "[AD][AG][GD]" = ~ (Admit + Gender + Dept)^2,
+  "[AGD]" = ~ Admit * Gender * Dept), initial = 2,
+  main = "UC Berkeley admissions", height = 480)
+```
+
+In the model of no three-way interaction, [AD][AG][GD], the Admit–Gender
+edge is thin and not significant ($\Delta G^2 \approx 1.5$ on 1 df). Once the
+department is accounted for, gender adds nothing to the prediction of
+admission. Tick *show marginal associations* to see that the marginal
+Admit–Gender association is weak too, but highly significant because of the
+large sample.
+
+```{r graph-titanic}
+iassoc_graph(Titanic, models = list(
+  "joint", "conditional",
+  "Survival ~ Class + Sex + Age" =
+    ~ Class * Sex * Age + Survived * (Class + Sex + Age),
+  "Survival ~ Class*Sex + Class*Age" =
+    ~ Class * Sex * Age + Survived * (Class * Sex + Class * Age)),
+  main = "Titanic", height = 520)
+```
+
+## References
+
+* Greenacre, M. (2017). *Correspondence Analysis in Practice*, 3rd ed. CRC
+  Press.
+* Nenadić, O. and Greenacre, M. (2007). Correspondence analysis in R, with
+  two- and three-dimensional graphics: the ca package. *Journal of
+  Statistical Software*, 20(3), 1–13.
+* Whittaker, J. (1990). *Graphical Models in Applied Multivariate
+  Statistics*. Wiley.
+* Friendly, M. and Meyer, D. (2016). *Discrete Data Analysis with R*,
+  chapters 6 and 9. CRC Press.
