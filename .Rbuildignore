@@ -5,3 +5,8 @@
 ^\.gitignore$
 ^\.git$
 ^README\.md$
+^\.RData$
+^\.Rhistory$
+^cran-comments\.md$
+^CRAN-SUBMISSION$
+^deposit_github\.R$

@@ -128,6 +128,7 @@ robust_fit <- function(tab, df, form, method, mutual) {
     method <- if (requireNamespace("robustbase", quietly = TRUE)) "glmrob"
               else if (mutual) "medpolish"
               else "none"
+  if (method == "none") return(NULL)
   if (method == "medpolish") {
     if (!mutual) warning("median polish only fits the mutual independence model; ",
                          "use robust = 'glmrob' for other models")
@@ -193,7 +194,8 @@ mosaic_cells <- function(x, expected = NULL, robust = c("auto", "medpolish", "gl
   form <- model_formula(expected, vars)
   fit <- tryCatch(suppressWarnings(stats::glm(form, family = stats::poisson(), data = df)),
                   error = function(e) NULL)
-  rob <- robust_fit(tab, df, form, robust, is.null(expected))
+  mutual <- all(lengths(model_margins(expected, vars)) == 1)
+  rob <- robust_fit(tab, df, form, robust, mutual)
   if (is.null(fit)) {
     ## glm failed (typically sampling zeros making some parameters infinite):
     ## fall back on iterative proportional fitting, without leverages

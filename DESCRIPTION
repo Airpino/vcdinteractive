@@ -16,9 +16,13 @@ Description: Interactive versions of the displays of the 'vcd' and
     widgets provide pairwise mosaic matrices with linked highlighting,
     fourfold displays with log odds ratio plots, rootograms for discrete
     distributions, spinograms and conditional density plots,
-    correspondence analysis maps and association graphs.
+    correspondence analysis maps and association graphs. The displays follow
+    the strucplot framework of Meyer, Zeileis and Hornik (2006)
+    <doi:10.18637/jss.v017.i03> and Friendly and Meyer (2016, ISBN:
+    9781498725835).
 License: GPL-2 | GPL-3
 Encoding: UTF-8
+Language: en-GB
 Depends: R (>= 4.1.0)
 Imports: htmlwidgets, stats, grDevices, utils
 Suggests: vcd, vcdExtra, ca, gnm, robustbase, shiny, knitr, rmarkdown, testthat (>= 3.0.0)
