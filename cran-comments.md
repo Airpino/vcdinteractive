@@ -10,8 +10,10 @@ This is a new submission.
 
 ## Test environments
 
-* local Ubuntu, R 4.3 (`R CMD check --as-cran`, with and without the
-  suggested packages)
+* local Windows 11 x64, R 4.5.3 (`devtools::check(remote = TRUE, manual = TRUE)`):
+  0 errors, 0 warnings, 1 note (New submission)
+* Ubuntu, R 4.3 (`R CMD check --as-cran`, with and without the suggested
+  packages): 0 errors, 0 warnings
 * win-builder (R-devel)
 * R-hub (linux, macos, windows)
 
