@@ -10,3 +10,4 @@
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
 ^deposit_github\.R$
+^\.github$
